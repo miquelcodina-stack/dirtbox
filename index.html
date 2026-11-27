@@ -55,7 +55,7 @@ function setupPalette(){for(const [group,items] of Object.entries(groups)){const
 function choose(k){selected=k;tool='paint';document.querySelectorAll('.element').forEach(b=>b.classList.toggle('active',b.dataset.element===k));document.querySelectorAll('.tool-btn').forEach(b=>b.classList.remove('on'));document.getElementById('paint').classList.add('on');document.getElementById('preview').style.background=color(k);document.getElementById('selectedName').textContent=E[k].name.toUpperCase();document.getElementById('selectedType').textContent=E[k].type}
 function put(x,y,k){if(!inside(x,y))return;const p=idx(x,y);grid[p]=code[k];life[p]=k==='fire'?30+Math.random()*35:0;burn[p]=0}
 function ignite(p,duration=100){if(burn[p]===0)burn[p]=duration+Math.random()*35}
-function paintAt(x,y){const radius=brush/2;for(let dy=-radius;dy<=radius;dy++)for(let dx=-radius;dx<=radius;dx++){if(dx*dx+dy*dy>radius*radius+1||Math.random()*100>density)continue;const xx=x+dx,yy=y+dy;if(!inside(xx,yy))continue;if(tool==='erase')put(xx,yy,'empty');else if(tool==='sample'){const k=names[grid[idx(xx,yy)]];if(k&&k!=='empty')choose(k);tool='paint';return}else put(xx,yy,selected)}}
+function paintAt(x,y){if(selected==='plant'&&tool==='paint'){if(inside(x,y)&&Math.random()*100<=density)put(x,y,'plant');return}const radius=brush/2;for(let dy=-radius;dy<=radius;dy++)for(let dx=-radius;dx<=radius;dx++){if(dx*dx+dy*dy>radius*radius+1||Math.random()*100>density)continue;const xx=x+dx,yy=y+dy;if(!inside(xx,yy))continue;if(tool==='erase')put(xx,yy,'empty');else if(tool==='sample'){const k=names[grid[idx(xx,yy)]];if(k&&k!=='empty')choose(k);tool='paint';return}else put(xx,yy,selected)}}
 function swap(a,b){const t=grid[a];grid[a]=grid[b];grid[b]=t;const l=life[a];life[a]=life[b];life[b]=l;const z=burn[a];burn[a]=burn[b];burn[b]=z}
 function move(x,y,nx,ny){if(!inside(nx,ny))return false;const a=idx(x,y),b=idx(nx,ny);if(grid[b]!==0)return false;swap(a,b);return true}
 function react(x,y,k){const p=idx(x,y),v=names[grid[p]];if(v==='empty'||v===k)return;
@@ -68,6 +68,12 @@ if((k==='salt'&&v==='water')||(k==='water'&&v==='salt')){grid[p]=code.water;life
 return}
 function updateCell(x,y){const p=idx(x,y),k=names[grid[p]];if(!k||k==='empty'||k==='stone'||k==='metal')return;
 if(k==='plant'){
+const below=inside(x,y+1)?names[grid[idx(x,y+1)]]:'stone';
+const side=Math.random()<.5?-1:1;
+if(below==='empty'){
+move(x,y,x,y+1);return
+}
+if(move(x,y,x+side,y+1)||move(x,y,x-side,y+1))return;
 const around=[[0,-1],[1,0],[0,1],[-1,0],[1,-1],[1,1],[-1,1],[-1,-1]];
 const smokeCells=around.map(([dx,dy])=>[x+dx,y+dy]).filter(([nx,ny])=>inside(nx,ny)&&grid[idx(nx,ny)]===code.smoke);
 const growCells=around.map(([dx,dy])=>[x+dx,y+dy]).filter(([nx,ny])=>inside(nx,ny)&&grid[idx(nx,ny)]===0);
