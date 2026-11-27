@@ -41,12 +41,13 @@ const E={
  oil:{name:'Oil',type:'Liquid · flammable',color:'#b6a34c',phase:'liquid',density:3},
  acid:{name:'Acid',type:'Liquid · reactive',color:'#9aca55',phase:'liquid',density:4},
  lava:{name:'Lava',type:'Liquid · hot',color:'#ef673b',phase:'liquid',density:7},
+ staticLava:{name:'Static lava',type:'Solid · hot & fixed',color:'#d94b2f',phase:'solid',density:10},
  steam:{name:'Steam',type:'Gas · warm',color:'#b7c9c5',phase:'gas',density:1},
  smoke:{name:'Smoke',type:'Gas · drifting',color:'#65716f',phase:'gas',density:1},
  fire:{name:'Fire',type:'Energy · hot',color:'#ff9b43',phase:'fire',density:0},
  plant:{name:'Plant',type:'Life · growing',color:'#70b65c',phase:'solid',density:7}
 };
-const groups={solids:['sand','stone','wood','salt','ice','metal'],liquids:['water','oil','acid','lava','moltenMetal'],gases:['steam','smoke'],special:['fire','plant']};
+const groups={solids:['sand','stone','wood','salt','ice','metal'],liquids:['water','oil','acid','lava','staticLava','moltenMetal'],gases:['steam','smoke'],special:['fire','plant']};
 let grid=new Uint8Array(W*H),life=new Uint16Array(W*H),burn=new Uint16Array(W*H),selected='sand',brush=4,paused=false,tool='paint',density=100,frame=0,last=performance.now(),fps=60,painting=false,mouse={x:0,y:0};
 const ids=Object.keys(E),code={};ids.forEach((k,i)=>code[k]=i);const names=ids;
 const idx=(x,y)=>y*W+x,inside=(x,y)=>x>=0&&x<W&&y>=0&&y<H;
@@ -67,6 +68,7 @@ if((k==='steam'&&v==='ice')||(k==='ice'&&v==='steam')){grid[p]=code.water;life[p
 if((k==='salt'&&v==='water')||(k==='water'&&v==='salt')){grid[p]=code.water;life[p]=0;return 'consume'}
 return}
 function updateCell(x,y){const p=idx(x,y),k=names[grid[p]];if(!k||k==='empty'||k==='stone'||k==='metal')return;
+if(k==='staticLava'){for(const [dx,dy] of [[0,-1],[1,0],[-1,0],[0,1]]){const nx=x+dx,ny=y+dy;if(!inside(nx,ny))continue;const q=idx(nx,ny),v=names[grid[q]];if(v==='wood'||v==='plant'||v==='oil')ignite(q,115);if(v==='metal'){grid[q]=code.moltenMetal;life[q]=900+Math.floor(Math.random()*300)}}return}
 if(k==='plant'){
 const around=[[0,-1],[1,0],[0,1],[-1,0],[1,-1],[1,1],[-1,1],[-1,-1]];
 if(life[p]===1){
