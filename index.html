@@ -86,7 +86,7 @@ if(!inside(x+dx,y+dy))continue;
 const q=idx(x+dx,y+dy),v=names[grid[q]],dist=dx*dx+dy*dy;
 if(v==='water'&&Math.abs(dx)<=1&&Math.abs(dy)<=1)wet=true;
 if(v==='saltWater'&&Math.abs(dx)<=1&&Math.abs(dy)<=1)salty=true;
-if(v==='algae'&&dist<foodDist){food=q;foodDist=dist}
+if(tardigradeHunger[p]>=1800&&v==='algae'&&dist<foodDist){food=q;foodDist=dist}
 if(v==='tardigrade'&&dist<=36)pop++
 }
 if(salty){grid[p]=0;life[p]=0;tardigradeHunger[p]=0;return}
@@ -103,7 +103,7 @@ return
 }
 life[p]=0;
 if(pop>10&&Math.random()<.008){grid[p]=0;tardigradeHunger[p]=0;return}
-if(food!==null&&foodDist<=2){
+if(tardigradeHunger[p]>=1800&&food!==null&&foodDist<=2){
 grid[food]=0;life[food]=0;burn[food]=0;algaeBirths[food]=0;
 tardigradeHunger[p]=0;
 }
