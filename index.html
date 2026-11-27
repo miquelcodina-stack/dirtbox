@@ -51,16 +51,16 @@ const E={
  tardigrade:{name:'Tardigrade',type:'Life · microscopic animal',color:'#e6a4b9',phase:'solid',density:6}
 };
 const groups={solids:['sand','stone','wood','salt','ice','metal'],liquids:['water','saltWater','oil','acid','lava','staticLava','moltenMetal'],gases:['steam','smoke'],special:['fire','plant','algae','tardigrade']};
-let grid=new Uint8Array(W*H),life=new Uint16Array(W*H),burn=new Uint16Array(W*H),algaeBirths=new Uint8Array(W*H),selected='sand',brush=4,paused=false,tool='paint',density=100,frame=0,last=performance.now(),fps=60,painting=false,mouse={x:0,y:0};
+let grid=new Uint8Array(W*H),life=new Uint16Array(W*H),burn=new Uint16Array(W*H),algaeBirths=new Uint8Array(W*H),tardigradeHunger=new Uint16Array(W*H),selected='sand',brush=4,paused=false,tool='paint',density=100,frame=0,last=performance.now(),fps=60,painting=false,mouse={x:0,y:0};
 const ids=Object.keys(E),code={};ids.forEach((k,i)=>code[k]=i);const names=ids;
 const idx=(x,y)=>y*W+x,inside=(x,y)=>x>=0&&x<W&&y>=0&&y<H;
 function color(k){return E[k].color}
 function setupPalette(){for(const [group,items] of Object.entries(groups)){const root=document.getElementById(group);items.forEach(k=>{const b=document.createElement('button');b.className='element'+(k===selected?' active':'');b.dataset.element=k;b.innerHTML='<i class="swatch" style="background:'+color(k)+'"></i><span>'+E[k].name+'</span>';b.addEventListener('click',()=>choose(k));root.appendChild(b)})}}
 function choose(k){selected=k;tool='paint';document.querySelectorAll('.element').forEach(b=>b.classList.toggle('active',b.dataset.element===k));document.querySelectorAll('.tool-btn').forEach(b=>b.classList.remove('on'));document.getElementById('paint').classList.add('on');document.getElementById('preview').style.background=color(k);document.getElementById('selectedName').textContent=E[k].name.toUpperCase();document.getElementById('selectedType').textContent=E[k].type}
-function put(x,y,k){if(!inside(x,y))return;const p=idx(x,y);grid[p]=code[k];life[p]=k==='fire'?30+Math.random()*35:(k==='plant'||k==='algae')?1:k==='moltenMetal'?900+Math.random()*300:0;burn[p]=0;algaeBirths[p]=0}
+function put(x,y,k){if(!inside(x,y))return;const p=idx(x,y);grid[p]=code[k];tardigradeHunger[p]=0;life[p]=k==='fire'?30+Math.random()*35:(k==='plant'||k==='algae')?1:k==='moltenMetal'?900+Math.random()*300:0;burn[p]=0;algaeBirths[p]=0}
 function ignite(p,duration=100){if(burn[p]===0)burn[p]=duration+Math.random()*35}
-function paintAt(x,y){if((selected==='plant'||selected==='algae')&&tool==='paint'){if(inside(x,y)&&Math.random()*100<=density)put(x,y,selected);return}const radius=brush/2;for(let dy=-radius;dy<=radius;dy++)for(let dx=-radius;dx<=radius;dx++){if(dx*dx+dy*dy>radius*radius+1||Math.random()*100>density)continue;const xx=x+dx,yy=y+dy;if(!inside(xx,yy))continue;if(tool==='erase')put(xx,yy,'empty');else if(tool==='sample'){const k=names[grid[idx(xx,yy)]];if(k&&k!=='empty')choose(k);tool='paint';return}else put(xx,yy,selected)}}
-function swap(a,b){const t=grid[a];grid[a]=grid[b];grid[b]=t;const l=life[a];life[a]=life[b];life[b]=l;const z=burn[a];burn[a]=burn[b];burn[b]=z;const ab=algaeBirths[a];algaeBirths[a]=algaeBirths[b];algaeBirths[b]=ab}
+function paintAt(x,y){if((selected==='plant'||selected==='algae'||selected==='tardigrade')&&tool==='paint'){if(inside(x,y)&&Math.random()*100<=density)put(x,y,selected);return}const radius=brush/2;for(let dy=-radius;dy<=radius;dy++)for(let dx=-radius;dx<=radius;dx++){if(dx*dx+dy*dy>radius*radius+1||Math.random()*100>density)continue;const xx=x+dx,yy=y+dy;if(!inside(xx,yy))continue;if(tool==='erase')put(xx,yy,'empty');else if(tool==='sample'){const k=names[grid[idx(xx,yy)]];if(k&&k!=='empty')choose(k);tool='paint';return}else put(xx,yy,selected)}}
+function swap(a,b){const t=grid[a];grid[a]=grid[b];grid[b]=t;const l=life[a];life[a]=life[b];life[b]=l;const z=burn[a];burn[a]=burn[b];burn[b]=z;const ab=algaeBirths[a];algaeBirths[a]=algaeBirths[b];algaeBirths[b]=ab;const th=tardigradeHunger[a];tardigradeHunger[a]=tardigradeHunger[b];tardigradeHunger[b]=th}
 function move(x,y,nx,ny){if(!inside(nx,ny))return false;const a=idx(x,y),b=idx(nx,ny);if(grid[b]!==0)return false;swap(a,b);return true}
 function react(x,y,k){const p=idx(x,y),v=names[grid[p]];if(v==='empty'||v===k)return;
 if((k==='water'&&v==='lava')||(k==='lava'&&v==='water')){grid[p]=code.stone;life[p]=0;return 'consume'}
@@ -75,19 +75,21 @@ if(k==='staticLava'){for(const [dx,dy] of [[0,-1],[1,0],[-1,0],[0,1]]){const nx=
 if(k==='algae'){
 if(['fire','lava','staticLava','moltenMetal','acid'].some(v=>{for(const [dx,dy] of [[0,-1],[1,0],[-1,0],[0,1]]){const nx=x+dx,ny=y+dy;if(inside(nx,ny)&&names[grid[idx(nx,ny)]]===v)return true}return false})){grid[p]=0;life[p]=0;return}
 if(life[p]===1){const below=y+1;if(inside(x,below)){const q=idx(x,below),v=names[grid[q]];if(v==='empty'){move(x,y,x,below);return}if(v==='water'||v==='saltWater'){swap(p,q);life[q]=0;return}}let wet=false;for(const [dx,dy] of [[0,-1],[1,0],[-1,0],[0,1]]){const nx=x+dx,ny=y+dy;if(inside(nx,ny)&&['water','saltWater'].includes(names[grid[idx(nx,ny)]]))wet=true}if(!wet){grid[p]=0;life[p]=0;return}life[p]=0}
-const dirs=[[0,-1],[1,0],[0,1],[-1,0]];let wet=false;for(const [dx,dy] of dirs){const nx=x+dx,ny=y+dy;if(inside(nx,ny)&&['water','saltWater'].includes(names[grid[idx(nx,ny)]]))wet=true}if(!wet){grid[p]=0;return}if(algaeBirths[p]<3&&frame%360===p%360&&Math.random()<.12){const options=dirs.map(([dx,dy])=>[x+dx,y+dy]).filter(([nx,ny])=>inside(nx,ny)&&['water','saltWater'].includes(names[grid[idx(nx,ny)]]));if(options.length){const [gx,gy]=options[Math.floor(Math.random()*options.length)];put(gx,gy,'algae');algaeBirths[p]++}}return}
+const dirs=[[0,-1],[1,0],[0,1],[-1,0]];let wet=false;for(const [dx,dy] of dirs){const nx=x+dx,ny=y+dy;if(inside(nx,ny)&&['water','saltWater'].includes(names[grid[idx(nx,ny)]]))wet=true}if(!wet){grid[p]=0;return}if(frame%8===p%8&&inside(x,y+1)&&names[grid[idx(x,y+1)]]==='water'){swap(p,idx(x,y+1));return}if(algaeBirths[p]<3&&frame%180===p%180&&Math.random()<.25){const options=dirs.map(([dx,dy])=>[x+dx,y+dy]).filter(([nx,ny])=>inside(nx,ny)&&['water','saltWater'].includes(names[grid[idx(nx,ny)]]));if(options.length){const [gx,gy]=options[Math.floor(Math.random()*options.length)];put(gx,gy,'algae');algaeBirths[p]++}}return}
 if(k==='tardigrade'){
-for(const [dx,dy] of [[0,0],[0,-1],[1,0],[-1,0],[0,1]]){const nx=x+dx,ny=y+dy;if(inside(nx,ny)&&['fire','lava','staticLava','moltenMetal','acid'].includes(names[grid[idx(nx,ny)]])){grid[p]=0;life[p]=0;return}}
-let wet=false,salty=false,food=null,pop=0;
-for(let dy=-6;dy<=6;dy++)for(let dx=-6;dx<=6;dx++){
+tardigradeHunger[p]++;
+if(tardigradeHunger[p]>=3600){grid[p]=0;life[p]=0;tardigradeHunger[p]=0;return}
+for(const [dx,dy] of [[0,0],[0,-1],[1,0],[-1,0],[0,1]]){const nx=x+dx,ny=y+dy;if(inside(nx,ny)&&['fire','lava','staticLava','moltenMetal','acid'].includes(names[grid[idx(nx,ny)]])){grid[p]=0;life[p]=0;tardigradeHunger[p]=0;return}}
+let wet=false,salty=false,food=null,foodDist=999,pop=0;
+for(let dy=-8;dy<=8;dy++)for(let dx=-8;dx<=8;dx++){
 if(!inside(x+dx,y+dy))continue;
-const q=idx(x+dx,y+dy),v=names[grid[q]];
+const q=idx(x+dx,y+dy),v=names[grid[q]],dist=dx*dx+dy*dy;
 if(v==='water'&&Math.abs(dx)<=1&&Math.abs(dy)<=1)wet=true;
 if(v==='saltWater'&&Math.abs(dx)<=1&&Math.abs(dy)<=1)salty=true;
-if(v==='algae'&&Math.abs(dx)<=1&&Math.abs(dy)<=1)food=q;
-if(v==='tardigrade'&&dx*dx+dy*dy<=36)pop++
+if(v==='algae'&&dist<foodDist){food=q;foodDist=dist}
+if(v==='tardigrade'&&dist<=36)pop++
 }
-if(salty){grid[p]=0;life[p]=0;return}
+if(salty){grid[p]=0;life[p]=0;tardigradeHunger[p]=0;return}
 if(!wet){
 life[p]=1;
 const down=y+1,side=Math.random()<.5?-1:1;
@@ -100,9 +102,10 @@ if(move(x,y,x+side,y+1)||move(x,y,x-side,y+1))return;
 return
 }
 life[p]=0;
-if(pop>10&&Math.random()<.008){grid[p]=0;return}
-if(food!==null&&frame%120===p%120){
+if(pop>10&&Math.random()<.008){grid[p]=0;tardigradeHunger[p]=0;return}
+if(food!==null&&foodDist<=2){
 grid[food]=0;life[food]=0;burn[food]=0;algaeBirths[food]=0;
+tardigradeHunger[p]=0;
 }
 if(frame%900===p%900&&Math.random()<.025){
 const spots=[[0,-1],[1,0],[0,1],[-1,0],[1,1],[-1,1],[1,-1],[-1,-1]].map(([dx,dy])=>[x+dx,y+dy]).filter(([nx,ny])=>inside(nx,ny)&&grid[idx(nx,ny)]===code.water);
@@ -110,6 +113,11 @@ if(spots.length){const [gx,gy]=spots[Math.floor(Math.random()*spots.length)];put
 }
 if(frame%5!==p%5)return;
 const swim=[[0,-1],[1,0],[0,1],[-1,0],[1,1],[-1,1],[1,-1],[-1,-1]];
+if(food!==null){
+const fx=food%W-x,fy=Math.floor(food/W)-y;
+const preferred=[[Math.sign(fx),0],[0,Math.sign(fy)],[Math.sign(fx),Math.sign(fy)],[Math.sign(fx),-Math.sign(fy)],[0,-Math.sign(fy)],[-Math.sign(fx),0]];
+for(const [dx,dy] of preferred){if(!dx&&!dy)continue;const nx=x+dx,ny=y+dy;if(inside(nx,ny)&&grid[idx(nx,ny)]===code.water){swap(p,idx(nx,ny));return}}
+}
 for(let i=swim.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[swim[i],swim[j]]=[swim[j],swim[i]]}
 for(const [dx,dy] of swim){const nx=x+dx,ny=y+dy;if(inside(nx,ny)&&grid[idx(nx,ny)]===code.water){swap(p,idx(nx,ny));return}}
 return}
@@ -167,7 +175,7 @@ function loop(now){if(!paused){tick();if(frame%2===0)render()}if(now-last>=500){
 function position(e){const r=canvas.getBoundingClientRect();return {x:Math.floor((e.clientX-r.left)/r.width*W),y:Math.floor((e.clientY-r.top)/r.height*H)}}
 canvas.addEventListener('pointerdown',e=>{painting=true;canvas.setPointerCapture(e.pointerId);mouse=position(e);paintAt(mouse.x,mouse.y);render()});canvas.addEventListener('pointermove',e=>{if(!painting)return;const p=position(e);const dx=p.x-mouse.x,dy=p.y-mouse.y,steps=Math.max(Math.abs(dx),Math.abs(dy),1);for(let i=1;i<=steps;i++)paintAt(Math.round(mouse.x+dx*i/steps),Math.round(mouse.y+dy*i/steps));mouse=p});canvas.addEventListener('pointerup',()=>painting=false);canvas.addEventListener('pointercancel',()=>painting=false);canvas.addEventListener('contextmenu',e=>e.preventDefault());
 document.getElementById('pause').onclick=()=>{paused=!paused;document.getElementById('pause').textContent=paused?'▶ RESUME':'Ⅱ PAUSE';document.getElementById('status').textContent=paused?'Ⅱ SIMULATION PAUSED':'● SIMULATION LIVE';render()};
-document.getElementById('reset').onclick=()=>{grid.fill(0);life.fill(0);burn.fill(0);paused=false;document.getElementById('pause').textContent='Ⅱ PAUSE';document.getElementById('status').textContent='● SIMULATION LIVE';render()};
+document.getElementById('reset').onclick=()=>{grid.fill(0);life.fill(0);burn.fill(0);algaeBirths.fill(0);tardigradeHunger.fill(0);paused=false;document.getElementById('pause').textContent='Ⅱ PAUSE';document.getElementById('status').textContent='● SIMULATION LIVE';render()};
 document.getElementById('smaller').onclick=()=>setBrush(brush-1);document.getElementById('larger').onclick=()=>setBrush(brush+1);function setBrush(n){brush=Math.max(1,Math.min(16,n));document.getElementById('brushSize').textContent=brush;document.getElementById('brushStat').textContent=brush+' px'}
 document.getElementById('density').oninput=e=>{density=+e.target.value;document.getElementById('densityValue').textContent=density+'%'};
 document.getElementById('paint').onclick=()=>setTool('paint');document.getElementById('erase').onclick=()=>setTool('erase');document.getElementById('sample').onclick=()=>setTool('sample');function setTool(t){tool=t;document.querySelectorAll('.tool-btn').forEach(b=>b.classList.remove('on'));document.getElementById(t).classList.add('on')}
