@@ -54,7 +54,7 @@ function setupPalette(){for(const [group,items] of Object.entries(groups)){const
 function choose(k){selected=k;tool='paint';document.querySelectorAll('.element').forEach(b=>b.classList.toggle('active',b.dataset.element===k));document.querySelectorAll('.tool-btn').forEach(b=>b.classList.remove('on'));document.getElementById('paint').classList.add('on');document.getElementById('preview').style.background=color(k);document.getElementById('selectedName').textContent=E[k].name.toUpperCase();document.getElementById('selectedType').textContent=E[k].type}
 function put(x,y,k){if(!inside(x,y))return;const p=idx(x,y);grid[p]=code[k];life[p]=k==='fire'?30+Math.random()*35:0;burn[p]=0}\nfunction ignite(p,duration=100){if(burn[p]===0)burn[p]=duration+Math.random()*35}
 function paintAt(x,y){const radius=brush/2;for(let dy=-radius;dy<=radius;dy++)for(let dx=-radius;dx<=radius;dx++){if(dx*dx+dy*dy>radius*radius+1||Math.random()*100>density)continue;const xx=x+dx,yy=y+dy;if(!inside(xx,yy))continue;if(tool==='erase')put(xx,yy,'empty');else if(tool==='sample'){const k=names[grid[idx(xx,yy)]];if(k&&k!=='empty')choose(k);tool='paint';return}else put(xx,yy,selected)}}
-function swap(a,b){const t=grid[a];grid[a]=grid[b];grid[b]=t;const l=life[a];life[a]=life[b];life[b]=l}
+function swap(a,b){const t=grid[a];grid[a]=grid[b];grid[b]=t;const l=life[a];life[a]=life[b];life[b]=l;const z=burn[a];burn[a]=burn[b];burn[b]=z}
 function move(x,y,nx,ny){if(!inside(nx,ny))return false;const a=idx(x,y),b=idx(nx,ny);if(grid[b]!==0)return false;swap(a,b);return true}
 function react(x,y,k){const p=idx(x,y),v=names[grid[p]];if(v==='empty'||v===k)return;
 if((k==='water'&&v==='lava')||(k==='lava'&&v==='water')){grid[p]=code.stone;life[p]=0;return 'consume'}
@@ -65,7 +65,18 @@ if((k==='steam'&&v==='ice')||(k==='ice'&&v==='steam')){grid[p]=code.water;life[p
 if((k==='salt'&&v==='water')||(k==='water'&&v==='salt')){grid[p]=code.water;life[p]=0;return 'consume'}
 return}
 function updateCell(x,y){const p=idx(x,y),k=names[grid[p]];if(!k||k==='empty'||k==='stone'||k==='metal')return;
-if(k==='wood'||k==='plant'||k==='oil'){if(burn[p]>0){burn[p]--;if(Math.random()<.018){const dirs=[[0,-1],[1,0],[-1,0],[0,1]],d=dirs[Math.floor(Math.random()*dirs.length)],nx=x+d[0],ny=y+d[1];if(inside(nx,ny)){const q=idx(nx,ny),v=names[grid[q]];if(v==='wood'||v==='plant'||v==='oil')ignite(q,95)}}if(burn[p]===0){grid[p]=code.smoke;life[p]=0;return}}if(k==='wood'||k==='plant')return}\nif(k==='fire'){if(life[p]>0)life[p]--;else{grid[p]=code.smoke;return}for(const [dx,dy] of [[0,-1],[1,0],[-1,0],[0,1]]){const nx=x+dx,ny=y+dy;if(!inside(nx,ny))continue;const q=idx(nx,ny),v=names[grid[q]];if((v==='wood'||v==='plant'||v==='oil')&&Math.random()<.09)ignite(q,95);else if(v==='water'){grid[p]=code.steam;life[p]=0;return}}if(Math.random()<.25)move(x,y,x+(Math.random()<.5?-1:1),y-1);return}
+if(k==='wood'||k==='plant'||k==='oil'){
+if(burn[p]>0){
+burn[p]--;
+if(Math.random()<.018){
+const dirs=[[0,-1],[1,0],[-1,0],[0,1]],d=dirs[Math.floor(Math.random()*dirs.length)],nx=x+d[0],ny=y+d[1];
+if(inside(nx,ny)){const q=idx(nx,ny),v=names[grid[q]];if(v==='wood'||v==='plant'||v==='oil')ignite(q,95)}
+}
+if(burn[p]===0){grid[p]=code.smoke;life[p]=0;return}
+}
+if(k==='wood'||k==='plant')return
+}
+if(k==='fire'){if(life[p]>0)life[p]--;else{grid[p]=code.smoke;return}for(const [dx,dy] of [[0,-1],[1,0],[-1,0],[0,1]]){const nx=x+dx,ny=y+dy;if(!inside(nx,ny))continue;const q=idx(nx,ny),v=names[grid[q]];if((v==='wood'||v==='plant'||v==='oil')&&Math.random()<.09)ignite(q,95);else if(v==='water'){grid[p]=code.steam;life[p]=0;return}}if(Math.random()<.25)move(x,y,x+(Math.random()<.5?-1:1),y-1);return}
 if(k==='plant'){if(Math.random()<.008){const nx=x+(Math.random()<.5?-1:1),ny=y-1;if(inside(nx,ny)&&grid[idx(nx,ny)]===0&&grid[idx(x,y+1)]===code.water)put(nx,ny,'plant')}return}
 if(k==='steam'||k==='smoke'){if(k==='steam'&&y===0){grid[p]=code.water;life[p]=0;return}const dirs=Math.random()<.5?[-1,1]:[1,-1];if(Math.random()<.006){grid[p]=0;return}const riseChance=k==='steam'?.22:.10;if(Math.random()<riseChance){if(move(x,y,x,y-1)||move(x,y,x+dirs[0],y-1)||move(x,y,x+dirs[1],y-1))return}if(Math.random()<.035)move(x,y,x+dirs[0],y);return}
 for(const [dx,dy] of [[0,-1],[1,0],[-1,0],[0,1]]){const nx=x+dx,ny=y+dy;if(!inside(nx,ny))continue;const q=idx(nx,ny),v=names[grid[q]];if(k==='water'&&v==='lava'){grid[q]=code.stone;grid[p]=code.steam;return}if(k==='lava'&&v==='water'){grid[p]=code.stone;grid[q]=code.steam;return}if(k==='acid'&&['wood','plant','metal','stone'].includes(v)){grid[q]=code.smoke;return}if(k==='lava'&&['wood','plant','oil'].includes(v)){ignite(q,115);continue}if(k==='steam'&&v==='ice'){grid[q]=code.water;return}if(k==='salt'&&v==='water'){grid[p]=0;return}}const down=y+1,side=Math.random()<.5?-1:1;
