@@ -36,6 +36,7 @@ const E={
  salt:{name:'Salt',type:'Solid · soluble',color:'#e0e4d8',phase:'powder',density:6},
  ice:{name:'Ice',type:'Solid · cold',color:'#9bd9e8',phase:'solid',density:8},
  metal:{name:'Metal',type:'Solid · conductive',color:'#9ba8b1',phase:'solid',density:10},
+ filter:{name:'Filter',type:'Solid · liquids pass through',color:'#70a9a0',phase:'solid',density:10},
  moltenMetal:{name:'Molten metal',type:'Liquid · molten',color:'#ffb45c',phase:'liquid',density:8},
  water:{name:'Water',type:'Liquid · fluid',color:'#438ec7',phase:'liquid',density:4},
  oil:{name:'Oil',type:'Liquid · flammable',color:'#b6a34c',phase:'liquid',density:3},
@@ -50,7 +51,7 @@ const E={
  algae:{name:'Algae',type:'Life · aquatic',color:'#4cbd75',phase:'solid',density:7},
  tardigrade:{name:'Tardigrade',type:'Life · microscopic animal',color:'#e6a4b9',phase:'solid',density:6}
 };
-const groups={solids:['sand','stone','wood','salt','ice','metal'],liquids:['water','saltWater','oil','acid','lava','staticLava','moltenMetal'],gases:['steam','smoke'],special:['fire','plant','algae','tardigrade']};
+const groups={solids:['sand','stone','wood','salt','ice','metal','filter'],liquids:['water','saltWater','oil','acid','lava','staticLava','moltenMetal'],gases:['steam','smoke'],special:['fire','plant','algae','tardigrade']};
 let grid=new Uint8Array(W*H),life=new Uint16Array(W*H),burn=new Uint16Array(W*H),algaeBirths=new Uint8Array(W*H),tardigradeHunger=new Uint16Array(W*H),selected='sand',brush=4,paused=false,tool='paint',density=100,frame=0,last=performance.now(),fps=60,painting=false,mouse={x:0,y:0};
 const ids=Object.keys(E),code={};ids.forEach((k,i)=>code[k]=i);const names=ids;
 const idx=(x,y)=>y*W+x,inside=(x,y)=>x>=0&&x<W&&y>=0&&y<H;
@@ -61,7 +62,7 @@ function put(x,y,k){if(!inside(x,y))return;const p=idx(x,y);grid[p]=code[k];tard
 function ignite(p,duration=100){if(burn[p]===0)burn[p]=duration+Math.random()*35}
 function paintAt(x,y){if((selected==='plant'||selected==='algae'||selected==='tardigrade')&&tool==='paint'){if(inside(x,y)&&Math.random()*100<=density)put(x,y,selected);return}const radius=brush/2;for(let dy=-radius;dy<=radius;dy++)for(let dx=-radius;dx<=radius;dx++){if(dx*dx+dy*dy>radius*radius+1||Math.random()*100>density)continue;const xx=x+dx,yy=y+dy;if(!inside(xx,yy))continue;if(tool==='erase')put(xx,yy,'empty');else if(tool==='sample'){const k=names[grid[idx(xx,yy)]];if(k&&k!=='empty')choose(k);tool='paint';return}else put(xx,yy,selected)}}
 function swap(a,b){const t=grid[a];grid[a]=grid[b];grid[b]=t;const l=life[a];life[a]=life[b];life[b]=l;const z=burn[a];burn[a]=burn[b];burn[b]=z;const ab=algaeBirths[a];algaeBirths[a]=algaeBirths[b];algaeBirths[b]=ab;const th=tardigradeHunger[a];tardigradeHunger[a]=tardigradeHunger[b];tardigradeHunger[b]=th}
-function move(x,y,nx,ny){if(!inside(nx,ny))return false;const a=idx(x,y),b=idx(nx,ny);if(grid[b]!==0)return false;swap(a,b);return true}
+function move(x,y,nx,ny){if(!inside(nx,ny))return false;const a=idx(x,y),b=idx(nx,ny);if(grid[b]===code.filter){const k=names[grid[a]],tx=nx+(nx-x),ty=ny+(ny-y);if(!k||E[k].phase!=='liquid'||!inside(tx,ty))return false;const c=idx(tx,ty);if(grid[c]!==0)return false;swap(a,c);return true}if(grid[b]!==0)return false;swap(a,b);return true}
 function react(x,y,k){const p=idx(x,y),v=names[grid[p]];if(v==='empty'||v===k)return;
 if((k==='water'&&v==='lava')||(k==='lava'&&v==='water')){grid[p]=code.stone;life[p]=0;return 'consume'}
 if((k==='fire'&&(v==='wood'||v==='plant'||v==='oil'))||(v==='fire'&&(k==='wood'||k==='plant'||k==='oil'))){grid[p]=code.fire;life[p]=50;return 'consume'}
@@ -70,7 +71,7 @@ if((k==='acid'&&['wood','plant','metal','stone'].includes(v))||(v==='acid'&&['wo
 if((k==='steam'&&v==='ice')||(k==='ice'&&v==='steam')){grid[p]=code.water;life[p]=0;return 'consume'}
 if((k==='salt'&&v==='water')||(k==='water'&&v==='salt')){grid[p]=code.water;life[p]=0;return 'consume'}
 return}
-function updateCell(x,y){const p=idx(x,y),k=names[grid[p]];if(!k||k==='empty'||k==='stone'||k==='metal')return;
+function updateCell(x,y){const p=idx(x,y),k=names[grid[p]];if(!k||k==='empty'||k==='stone'||k==='metal'||k==='filter')return;
 if(k==='staticLava'){for(const [dx,dy] of [[0,-1],[1,0],[-1,0],[0,1]]){const nx=x+dx,ny=y+dy;if(!inside(nx,ny))continue;const q=idx(nx,ny),v=names[grid[q]];if(v==='water'){grid[q]=code.steam;life[q]=0;continue}if(v==='wood'||v==='plant'||v==='oil')ignite(q,115);if(v==='metal'){grid[q]=code.moltenMetal;life[q]=900+Math.floor(Math.random()*300)}}return}
 if(k==='algae'){
 if(['fire','lava','staticLava','moltenMetal','acid'].some(v=>{for(const [dx,dy] of [[0,-1],[1,0],[-1,0],[0,1]]){const nx=x+dx,ny=y+dy;if(inside(nx,ny)&&names[grid[idx(nx,ny)]]===v)return true}return false})){grid[p]=0;life[p]=0;return}
